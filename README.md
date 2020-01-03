@@ -16,7 +16,7 @@ Note that you need create db scheme "ontology-holder" with utf-8 charset befer s
 
 contract must be OEP4 contract, such as b71fc841b203bcf08e81311131671885db689faf
 
-1. Get holder list of asset
+Get holder list of asset
 
 ```
 http://localhost:8080/getAssetHolder?qid=1&contract=b71fc841b203bcf08e81311131671885db689faf&from=0&count=100
@@ -24,19 +24,20 @@ http://localhost:8080/getAssetHolder?qid=1&contract=b71fc841b203bcf08e8131113167
 
 from and count must larger 0, and count must smaller than 100.
 
-2. Get asset base info
+Get asset base info
 
 ```
 http://localhost:8080/GetAssetInfo?qid=1&contract=b71fc841b203bcf08e81311131671885db689faf
 ```
 
-3. Get total holder count
+Get total holder count
 
 ```
 http://localhost:8080/getAssetHolderCount?qid=1&contract=b71fc841b203bcf08e81311131671885db689faf
 ```
 
-4. Get balance of address
+
+Get balance of address
 
 ```
 http://localhost:8090/getBalance?address=98067c0ae9fd8f109956e06f5519a9bc0963f699&contract=b71fc841b203bcf08e81311131671885db689faf
