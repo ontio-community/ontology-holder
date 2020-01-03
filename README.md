@@ -14,7 +14,6 @@ Note that you need create db scheme "ontology-holder" with utf-8 charset befer s
 
 ## API
 
-contract must be OEP4 contract, such as b71fc841b203bcf08e81311131671885db689faf
 1. Get holder list of asset.
 
 http://localhost:8080/getAssetHolder?qid=1&contract=b71fc841b203bcf08e81311131671885db689faf&from=0&count=100
