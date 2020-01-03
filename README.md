@@ -13,19 +13,12 @@ There are two important item, "BlockHeight" and "Contracts". "Contracts" include
 Note that you need create db scheme "ontology-holder" with utf-8 charset befer setup Ontology-holder.
 
 ## API
-
 1. Get holder list of asset.
-
 http://localhost:8080/getAssetHolder?qid=1&contract=b71fc841b203bcf08e81311131671885db689faf&from=0&count=100
-
 from and count must larger 0, and count must smaller than 100.
 2. Get asset base info.
-
 http://localhost:8080/GetAssetInfo?qid=1&contract=b71fc841b203bcf08e81311131671885db689faf
-
-
 Get total holder count
-
 ```
 http://localhost:8080/getAssetHolderCount?qid=1&contract=b71fc841b203bcf08e81311131671885db689faf
 ```
