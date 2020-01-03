@@ -1,0 +1,17 @@
+ontology-holder-oep4部署配置指导
+配置中大部分已经完成，只有部分需要根据具体的环境来做配置。
+1. mysql的配置
+需要根据机器上mysql的具体环境来配置mysql的连接，特别是mysql的url，用户名和密码。数据库名称默认为ontology_holder_oep4，同时需要确保你mysql有这个数据库，如果没有则创建数据库，sql为"create database ontology_holder_oep4"。不用手动创建表，程序启动后会自动初始化并创建需要的表。
+
+2. rpc服务的配置
+主要是配置端口HttpServerPort，确保可以在外部访问该端口
+
+3. ontology节点以及块高度
+OntologyRpcAddress为节点，最好选择一个访问比较快的节点，在我们办公环境下，访问dappnode2.ont.io大概是每秒5个块，当前ontology主网已经有700W个块了。
+高度默认配置为100W，这是当前配置的oep4合约所有交易的最小的高度了。
+
+4. 日志配置
+在log4go.xml中配置日志级别，默认为DEBUG，在稳定的环境下，你可以配置为INFO或者其他
+
+5. 后台运行
+在稳定的情况下，你需要后台运行为一个服务，那么你可以使用start.sh脚本来启动它，程序将作为后台服务运行。
