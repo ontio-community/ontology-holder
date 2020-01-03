@@ -18,18 +18,15 @@ contract must be OEP4 contract, such as b71fc841b203bcf08e81311131671885db689faf
 
 1. Get holder list of asset
 
-```
 http://localhost:8080/getAssetHolder?qid=1&contract=b71fc841b203bcf08e81311131671885db689faf&from=0&count=100
-```
 
 from and count must larger 0, and count must smaller than 100.
 
 
 2. Get asset base info
 
-```
 http://localhost:8080/GetAssetInfo?qid=1&contract=b71fc841b203bcf08e81311131671885db689faf
-```
+
 
 Get total holder count
 
