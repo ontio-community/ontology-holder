@@ -42,3 +42,7 @@ http://localhost:8090/getBalance?address=98067c0ae9fd8f109956e06f5519a9bc0963f69
 ```
 
 contract param is option.
+
+## License
+
+The Ontology library is licensed under the GNU Lesser General Public License v3.0, read the LICENSE file in the root directory of the project for details.
