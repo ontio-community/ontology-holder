@@ -8,6 +8,8 @@ import (
 
 const (
 	NOTIFY_TRANSFER = "transfer"
+	INCREASE_PAX = "IncreasePAX"
+	DECREASE_PAX = "DecreasePAX"
 
 	/*
 	ONT_CONTRACT_ADDRESS               = "0100000000000000000000000000000000000000"
@@ -37,6 +39,7 @@ type Heartbeat struct {
 
 type TxTransfer struct {
 	TxHash   string
+	Name     string
 	Contract string
 	From     string
 	To       string
@@ -55,6 +58,7 @@ type AssetHolder struct {
 	Address  string
 	Contract string
 	Balance  uint64
+	Transactions int
 }
 
 type HttpServerRequest struct {

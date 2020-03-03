@@ -29,8 +29,6 @@ type OntologyManager struct {
 	mysqlHelper                *MySqlHelper
 	syncedEvtNotifyBlockHeight uint32
 	syncEvtNotifyChan          chan *EventNotify
-	ONTTotalSupply             uint64
-	ONGTotalSupply             uint64
 	hb                         *Heartbeat
 	holderCounts               map[string]int
 	exitCh                     chan interface{}
@@ -58,10 +56,6 @@ func (this *OntologyManager) Start() error {
 	go this.startHeartbeat()
 	go this.startUpdateInfo()
 
-	err = this.initTotalSupply()
-	if err != nil {
-		return err
-	}
 	err = this.initSyncedEvtBlockHeight()
 	if err != nil {
 		return err
@@ -72,23 +66,6 @@ func (this *OntologyManager) Start() error {
 	}
 	go this.startSyncEvtNotify()
 	go this.handleEvtNotify()
-	return nil
-}
-
-func (this *OntologyManager) initTotalSupply() error {
-	ontTotal, err := this.ontSdk.Native.Ont.TotalSupply()
-	if err != nil {
-		return err
-	}
-	this.ONTTotalSupply = ontTotal
-	log4.Info("ONTTotalSupply:%d", ontTotal)
-	ongTotal, err := this.ontSdk.Native.Ong.TotalSupply()
-	if err != nil {
-		return err
-	}
-	this.ONGTotalSupply = ongTotal
-	log4.Info("ONGTotalSupply:%d", ongTotal)
-
 	return nil
 }
 
@@ -136,8 +113,9 @@ func (this *OntologyManager) initGenesisBlock() error {
 				Contract: transfer.Contract,
 				Address:  transfer.To,
 				Balance:  transfer.Amount,
+				Transactions: 1,
 			})
-			transferEvts = append(transferEvts, []interface{}{NOTIFY_TRANSFER, transfer.From, transfer.To, transfer.Amount})
+			transferEvts = append(transferEvts, []interface{}{transfer.Name, transfer.From, transfer.To, transfer.Amount})
 		}
 		notifyJson, err := json.Marshal(transferEvts)
 		if err != nil {
@@ -223,10 +201,12 @@ func (this *OntologyManager) getTxTransferFromNotify(txEvt *sdkcom.SmartContactE
 		contractType := TypeOfContract(notify.ContractAddress)
 		var transferFrom, transferTo string
 		var transferAmount uint64
+		var name string
 		if contractType == ONT_ADDRESS || contractType == ONG_ADDRESS {
 			if states[0] != NOTIFY_TRANSFER {
 				continue
 			}
+			name = NOTIFY_TRANSFER
 			transferFrom, ok = states[1].(string)
 			if !ok {
 				continue
@@ -244,33 +224,73 @@ func (this *OntologyManager) getTxTransferFromNotify(txEvt *sdkcom.SmartContactE
 				continue
 			}
 		} else {
-			name, _ := hex.DecodeString(states[0].(string))
-			if string(name) != NOTIFY_TRANSFER {
-				continue
+			if notify.ContractAddress != "6bbc07bae862db0d7867e4e5b1a13c663e2b4bc8" {
+				which, _ := hex.DecodeString(states[0].(string))
+				name = string(which)
+				if name != NOTIFY_TRANSFER {
+					continue
+				}
+				transferFrom, ok = states[1].(string)
+				if !ok {
+					continue
+				}
+				transferTo, ok = states[2].(string)
+				if !ok {
+					continue
+				}
+				amountBytes, _ := hex.DecodeString(states[3].(string))
+				if !ok {
+					continue
+				}
+				transferAmount = common.BigIntFromNeoBytes(amountBytes).Uint64()
+			} else {
+				which, _ := hex.DecodeString(states[0].(string))
+				name = string(which)
+				if name == NOTIFY_TRANSFER {
+					transferFrom, ok = states[1].(string)
+					if !ok {
+						continue
+					}
+					transferTo, ok = states[2].(string)
+					if !ok {
+						continue
+					}
+					amountBytes, _ := hex.DecodeString(states[3].(string))
+					if !ok {
+						continue
+					}
+					transferAmount = common.BigIntFromNeoBytes(amountBytes).Uint64()
+				} else if name == INCREASE_PAX {
+					transferFrom = "0000000000000000000000000000000000000000"
+					transferTo, ok = states[1].(string)
+					if !ok {
+						continue
+					}
+					amountBytes, _ := hex.DecodeString(states[2].(string))
+					if !ok {
+						continue
+					}
+					transferAmount = common.BigIntFromNeoBytes(amountBytes).Uint64()
+				} else if name == DECREASE_PAX {
+					transferFrom, ok = states[1].(string)
+					if !ok {
+						continue
+					}
+					transferTo = "0000000000000000000000000000000000000000"
+					amountBytes, _ := hex.DecodeString(states[3].(string))
+					if !ok {
+						continue
+					}
+					transferAmount = common.BigIntFromNeoBytes(amountBytes).Uint64()
+				}
 			}
-			transferFrom, ok = states[1].(string)
-			if !ok {
-				continue
-			}
-			transferTo, ok = states[2].(string)
-			if !ok {
-				continue
-			}
-			amountBytes, _ := hex.DecodeString(states[3].(string))
-			if !ok {
-				continue
-			}
-			transferAmount = common.BigIntFromNeoBytes(amountBytes).Uint64()
 		}
 		txTransfers = append(txTransfers, &TxTransfer{
 			TxHash:   txEvt.TxHash,
+			Name: name,
 			Contract: notify.ContractAddress,
 			From: transferFrom,
 			To: transferTo,
-			/*
-			From:     SystemContractAddressTransfer(transferFrom),
-			To:       SystemContractAddressTransfer(transferTo),
-			*/
 			Amount:   transferAmount,
 		})
 	}
@@ -297,7 +317,7 @@ func (this *OntologyManager) handleEvtNotify() {
 
 				transferEvts := make([][]interface{}, 0, 2)
 				for _, transfer := range transfers {
-					transferEvts = append(transferEvts, []interface{}{NOTIFY_TRANSFER, transfer.From, transfer.To, transfer.Amount})
+					transferEvts = append(transferEvts, []interface{}{transfer.Name, transfer.From, transfer.To, transfer.Amount})
 				}
 				notifyJson, err := json.Marshal(transferEvts)
 				if err != nil {
@@ -314,7 +334,7 @@ func (this *OntologyManager) handleEvtNotify() {
 				txEvtNotifies = append(txEvtNotifies, txEvtNotify)
 				log4.Info("EventNotify:%+v", txEvtNotify)
 
-				if len(txEvtNotifies) >= int(dbBatchSize) {
+				if len(txTransfers) >= int(dbBatchSize) {
 					this.retryOnTransfer(txEvtNotifies, txTransfers)
 					txEvtNotifies = make([]*TxEventNotify, 0, dbBatchSize)
 					txTransfers = make([]*TxTransfer, 0, dbBatchSize*2)
@@ -396,23 +416,28 @@ func (this *OntologyManager) onTransfer(txNotifies []*TxEventNotify, txTransfers
 	assetHolderKeyMap := make(map[string]bool, txNotifySize)
 	assetHolders := make([]*AssetHolder, 0, txNotifySize)
 	for _, txTransfer := range txTransfers {
-		key := txTransfer.From + txTransfer.Contract
-		_, ok := assetHolderKeyMap[key]
-		if !ok {
-			assetHolderKeyMap[key] = true
-			assetHolders = append(assetHolders, &AssetHolder{
-				Address:  txTransfer.From,
-				Contract: txTransfer.Contract,
-			})
+		var key string
+		if txTransfer.From != "0000000000000000000000000000000000000000" {
+			key = txTransfer.From + txTransfer.Contract
+			_, ok := assetHolderKeyMap[key]
+			if !ok {
+				assetHolderKeyMap[key] = true
+				assetHolders = append(assetHolders, &AssetHolder{
+					Address:  txTransfer.From,
+					Contract: txTransfer.Contract,
+				})
+			}
 		}
-		key = txTransfer.To + txTransfer.Contract
-		_, ok = assetHolderKeyMap[key]
-		if !ok {
-			assetHolderKeyMap[key] = true
-			assetHolders = append(assetHolders, &AssetHolder{
-				Address:  txTransfer.To,
-				Contract: txTransfer.Contract,
-			})
+		if txTransfer.To != "0000000000000000000000000000000000000000" {
+			key = txTransfer.To + txTransfer.Contract
+			_, ok := assetHolderKeyMap[key]
+			if !ok {
+				assetHolderKeyMap[key] = true
+				assetHolders = append(assetHolders, &AssetHolder{
+					Address:  txTransfer.To,
+					Contract: txTransfer.Contract,
+				})
+			}
 		}
 	}
 	assetHolderMap, err := this.mysqlHelper.GetAssetHolderByKey(assetHolders)
@@ -420,30 +445,49 @@ func (this *OntologyManager) onTransfer(txNotifies []*TxEventNotify, txTransfers
 		return fmt.Errorf("GetAssetHolderByKey error:%s", err)
 	}
 
+	txMap := make(map[string]bool, len(txTransfers))
 	for _, txTransfer := range txTransfers {
-		key := txTransfer.From + txTransfer.Contract
-		assetHolder, ok := assetHolderMap[key]
-		if !ok || assetHolder.Balance < txTransfer.Amount {
-			err = fmt.Errorf("invalid transfer, Contact:%s TxHash:%s From:%s To:%s Amount:%d", txTransfer.Contract, txTransfer.TxHash, txTransfer.From, txTransfer.To, txTransfer.Amount)
-			log4.Error(err)
-			//time.Sleep(time.Second) //wait to log
-			//panic(err)
-		} else {
-			assetHolder.Balance -= txTransfer.Amount
-			assetHolderMap[key] = assetHolder
-		}
-
-		key = txTransfer.To + txTransfer.Contract
-		assetHolder, ok = assetHolderMap[key]
-		if !ok {
-			assetHolder = &AssetHolder{
-				Contract: txTransfer.Contract,
-				Address:  txTransfer.To,
-				Balance:  0,
+		var key string
+		if txTransfer.From != "0000000000000000000000000000000000000000" {
+			key = txTransfer.From + txTransfer.Contract
+			assetHolder, ok := assetHolderMap[key]
+			if !ok || assetHolder.Balance < txTransfer.Amount {
+				err = fmt.Errorf("invalid transfer, Contact:%s TxHash:%s From:%s To:%s Amount:%d", txTransfer.Contract, txTransfer.TxHash, txTransfer.From, txTransfer.To, txTransfer.Amount)
+				log4.Error(err)
+				//time.Sleep(time.Second) //wait to log
+				//panic(err)
+			} else {
+				txKey := txTransfer.From + txTransfer.TxHash
+				_, ok := txMap[txKey]
+				if !ok {
+					txMap[txKey] = true
+					assetHolder.Transactions ++
+				}
+				assetHolder.Balance -= txTransfer.Amount
+				assetHolderMap[key] = assetHolder
 			}
 		}
-		assetHolder.Balance += txTransfer.Amount
-		assetHolderMap[key] = assetHolder
+
+		if txTransfer.To != "0000000000000000000000000000000000000000" {
+			key = txTransfer.To + txTransfer.Contract
+			assetHolder, ok := assetHolderMap[key]
+			if !ok {
+				assetHolder = &AssetHolder{
+					Contract: txTransfer.Contract,
+					Address:  txTransfer.To,
+					Balance:  0,
+					Transactions: 0,
+				}
+			}
+			txKey := txTransfer.To + txTransfer.TxHash
+			_, ok = txMap[txKey]
+			if !ok {
+				txMap[txKey] = true
+				assetHolder.Transactions ++
+			}
+			assetHolder.Balance += txTransfer.Amount
+			assetHolderMap[key] = assetHolder
+		}
 	}
 
 	assetHolders = make([]*AssetHolder, 0, len(assetHolderMap))
@@ -489,6 +533,7 @@ func (this *OntologyManager) initHeartbeat() error {
 			return fmt.Errorf("InsertHeartbeat error:%s", err)
 		}
 	}
+	log4.Info("Current node:%d", heartbeat.NodeId)
 	this.hb = heartbeat
 	return this.heartbeat()
 }
@@ -522,34 +567,35 @@ func (this *OntologyManager) heartbeat() error {
 		}
 		//Node was been switched from current node.
 		heartbeat, err := this.mysqlHelper.GetHeartbeat(HEARTBEAT_MODULE)
-		if err != nil {
+		if err != nil || heartbeat == nil {
 			return fmt.Errorf("GetHeartbeat error:%s", err)
 		}
 		this.SetCurrentNodeId(heartbeat.NodeId)
-		log4.Info("Current node switch to:%d", heartbeat.NodeId)
+		log4.Info("Current node: %d switch to:%d", NodeId, heartbeat.NodeId)
+		return nil
+	} else {
+		lastNodeId, err := this.mysqlHelper.CheckHeartbeatTimeout(HEARTBEAT_MODULE, DefConfig.GetHeartbeatTimeoutTime())
+		if err != nil {
+			return fmt.Errorf("OntologyManager CheckHeartbeatTimeout error:%s", err)
+		}
+		log4.Debug("CheckHeartbeatTimeout lastNodeId:%d", lastNodeId)
+		if lastNodeId == 0 {
+			return nil //heartbeat ok
+		}
+		log4.Info("Current node:%d heartbeat timeout", lastNodeId)
+		//heartbeat timeout
+		ok, err := this.mysqlHelper.ResetHeartbeat(HEARTBEAT_MODULE, NodeId, lastNodeId)
+		if err != nil {
+			return fmt.Errorf("OntologyManager ResetHeartbeat error:%s", err)
+		}
+		if !ok {
+			//reset failed
+			return nil
+		}
+		this.SetCurrentNodeId(NodeId)
+		log4.Info("NodeId:%d Switch to current node", NodeId)
 		return nil
 	}
-	lastNodeId, err := this.mysqlHelper.CheckHeartbeatTimeout(HEARTBEAT_MODULE, DefConfig.GetHeartbeatTimeoutTime())
-	if err != nil {
-		return fmt.Errorf("OntologyManager CheckHeartbeatTimeout error:%s", err)
-	}
-	log4.Debug("CheckHeartbeatTimeout lastNodeId:%d", lastNodeId)
-	if lastNodeId == 0 {
-		return nil //heartbeat ok
-	}
-	log4.Info("Current node:%d heartbeat timeout", lastNodeId)
-	//heartbeat timeout
-	ok, err := this.mysqlHelper.ResetHeartbeat(HEARTBEAT_MODULE, NodeId, lastNodeId)
-	if err != nil {
-		return fmt.Errorf("OntologyManager ResetHeartbeat error:%s", err)
-	}
-	if !ok {
-		//reset failed
-		return nil
-	}
-	this.SetCurrentNodeId(NodeId)
-	log4.Info("NodeId:%d Switch to current node", NodeId)
-	return nil
 }
 
 func (this *OntologyManager) startUpdateInfo() {

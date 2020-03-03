@@ -65,35 +65,6 @@ func SaveJsonObject(filePath string, jsonObject interface{}) error {
 	return ioutil.WriteFile(filePath, data, 0666)
 }
 
-/*
-func SystemContractAddressTransfer(contractAddress string) string {
-	switch contractAddress {
-	case ONT_CONTRACT_ADDRESS_BASE58:
-		return ONT_CONTRACT_ADDRESS
-	case ONG_CONTRACT_ADDRESS_BASE58:
-		return ONG_CONTRACT_ADDRESS
-	case GOVERNANCE_CONTRACT_ADDRESS_BASE58:
-		return GOVERNANCE_CONTRACT_ADDRESS
-	default:
-		return contractAddress
-	}
-}
-*/
-
-/*
-func GetAddress(address string) (common.Address, error) {
-	addr, err := common.AddressFromBase58(address)
-	if err == nil {
-		return addr, nil
-	}
-	addr, err = common.AddressFromHexString(address)
-	if err == nil {
-		return addr, nil
-	}
-	return common.ADDRESS_EMPTY, fmt.Errorf("invalid address")
-}
-*/
-
 func IsMonitorContract(contract string) bool {
 	for _, item := range DefConfig.Contracts {
 		if contract == item {

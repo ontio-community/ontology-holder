@@ -151,9 +151,9 @@ func (this *MySqlHelper) OnTxEventNotify(evtNotify []*TxEventNotify, assetHolder
 		return nil
 	}
 	holderSqlBuf := bytes.NewBuffer(nil)
-	holderSqlBuf.WriteString("Insert Into holder(address, contract, balance) Values ")
+	holderSqlBuf.WriteString("Insert Into holder(address, contract, balance, transactions) Values ")
 	for i, holder := range assetHolder {
-		holderSqlBuf.WriteString(fmt.Sprintf("('%s', '%s', %d)", holder.Address, holder.Contract, holder.Balance))
+		holderSqlBuf.WriteString(fmt.Sprintf("('%s', '%s', %d, %d)", holder.Address, holder.Contract, holder.Balance, holder.Transactions))
 		if i == holderCount-1 {
 			holderSqlBuf.WriteString(" On Duplicate key Update balance=Values(balance);")
 		} else {
@@ -207,9 +207,9 @@ func (this *MySqlHelper) GetAssetHolder(from, count int, address, contract strin
 	}
 	buf := bytes.NewBuffer(nil)
 	if contract != "" {
-		buf.WriteString("Select address, balance From holder Where contract = '" + contract + "' ")
+		buf.WriteString("Select address, balance, transactions From holder Where contract = '" + contract + "' ")
 	} else {
-		buf.WriteString("Select address, contract, balance From holder Where ")
+		buf.WriteString("Select address, contract, balance, transactions From holder Where ")
 	}
 	if address != "" {
 		if contract != "" {
@@ -236,10 +236,10 @@ func (this *MySqlHelper) GetAssetHolder(from, count int, address, contract strin
 	for rows.Next() {
 		holder := &AssetHolder{}
 		if contract != "" {
-			err = rows.Scan(&holder.Address, &holder.Balance)
+			err = rows.Scan(&holder.Address, &holder.Balance, &holder.Transactions)
 			holder.Contract = contract
 		} else {
-			err = rows.Scan(&holder.Address, &holder.Contract, &holder.Balance)
+			err = rows.Scan(&holder.Address, &holder.Contract, &holder.Balance, &holder.Transactions)
 		}
 		if err != nil {
 			return nil, fmt.Errorf("row.Scan error:%s", err)
@@ -323,7 +323,7 @@ func (this *MySqlHelper) GetAssetHolderByKey(holders []*AssetHolder) (map[string
 		return nil, nil
 	}
 	sqlBuf := bytes.NewBuffer(nil)
-	sqlBuf.WriteString("Select address, contract, balance From holder Where ")
+	sqlBuf.WriteString("Select address, contract, balance, transactions From holder Where ")
 	for i, holder := range holders {
 		if i == count-1 {
 			sqlBuf.WriteString("(address='" + holder.Address + "' And contract='" + holder.Contract + "');")
@@ -341,7 +341,7 @@ func (this *MySqlHelper) GetAssetHolderByKey(holders []*AssetHolder) (map[string
 	holderMap := make(map[string]*AssetHolder, count)
 	for rows.Next() {
 		holder := &AssetHolder{}
-		err = rows.Scan(&holder.Address, &holder.Contract, &holder.Balance)
+		err = rows.Scan(&holder.Address, &holder.Contract, &holder.Balance, &holder.Transactions)
 		if err != nil {
 			return nil, fmt.Errorf("row.Scan error:%s", err)
 		}
@@ -439,7 +439,7 @@ func (this *MySqlHelper) UpdateHeartbeat(module string, nodeId uint32) (bool, er
 }
 
 func (this *MySqlHelper) CheckHeartbeatTimeout(module string, timeout uint32) (uint32, error) {
-	sqlText := fmt.Sprintf("Select ifnull(node_id,0) From heartbeat Where module = '%s' And (Now()-update_time) >= %d;", module, timeout)
+	sqlText := fmt.Sprintf("Select ifnull(node_id,0) From heartbeat Where module = '%s' And time_to_sec(timediff(Now(),update_time)) >= %d;", module, timeout)
 	rows, err := this.db.Query(sqlText)
 	if err != nil {
 		return 0, err

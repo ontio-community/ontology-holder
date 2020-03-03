@@ -2,6 +2,7 @@ CREATE TABLE `holder` (
   `address` varchar(48) NOT NULL,
   `contract` varchar(48) NOT NULL,
   `balance` bigint(19) NOT NULL,
+  `transactions` int(10) unsigned NOT NULL,
   PRIMARY KEY (`address`,`contract`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
