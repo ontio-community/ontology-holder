@@ -1,0 +1,14 @@
+{
+  "MySqlAddress":"ip:port",
+  "MySqlUserName":"username",
+  "MySqlPassword":"passwd",
+  "MySqlDBName":"ontology_holder",
+  "MySqlMaxConnSize":5,
+  "MySqlMaxOpenConnSize":50,
+  "MySqlConnMaxLifetime":300,
+  "OntologyRpcAddress":"http://localhost:20336",
+  "HttpServerPort":8080,
+  "DBBatchSize":500,
+  "DBBatchTime":5,
+  "MaxQueryPageSize":100
+}
